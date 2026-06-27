@@ -99,6 +99,11 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);
 .cat-count{font-size:11px;color:var(--text-muted);background:var(--surface-0);padding:1px 7px;border-radius:20px}
 .cat-actions{display:flex;gap:.3rem;opacity:0;transition:opacity .15s}
 .cat-header:hover .cat-actions{opacity:1}
+.sidebar-cat-actions{display:none;gap:.2rem;align-items:center;margin-left:auto}
+.nav-item:hover .sidebar-cat-actions{display:flex}
+.sidebar-cat-edit-btn{width:20px;height:20px;border:none;background:transparent;cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px;padding:0}
+.sidebar-cat-edit-btn:hover{background:var(--surface-0);color:var(--text-primary)}
+@media(max-width:600px){.sidebar-cat-actions{display:none!important}}
 .cat-mini-btn{width:24px;height:24px;border:none;background:transparent;cursor:pointer;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:13px}
 .cat-mini-btn:hover{background:var(--surface-0);color:var(--text-primary)}
 
@@ -679,9 +684,22 @@ function App(){
         h('span',{className:'sidebar-cat-count',style:{marginLeft:'auto',fontSize:11,color:'var(--text-muted)'}},ideas.filter(i=>i.status==='archive').length||'')
       ),
       h('div',{className:'sidebar-section'},'Categories'),
-      categories.map(cat=>h('div',{key:cat,className:'nav-item',style:{fontSize:12},onClick:()=>{setView('capture');setSearch(s=>s===cat?'':cat);}},
-        h(CatIcon,{cat}),h('span',{className:'nav-label'},cat),
-        h('span',{className:'sidebar-cat-count',style:{marginLeft:'auto',fontSize:11,color:'var(--text-muted)'}},ideas.filter(i=>i.category===cat).length||'')
+      categories.map(cat=>h('div',{key:cat,className:'nav-item',style:{fontSize:12,position:'relative'},
+        onClick:e=>{if(e.target.closest('.sidebar-cat-actions'))return;setView('capture');setSearch(s=>s===cat?'':cat);}},
+        h(CatIcon,{cat}),
+        editCat===cat
+          ?h('input',{className:'cat-title-edit',value:editCatVal,autoFocus:true,
+              onClick:e=>e.stopPropagation(),
+              onChange:e=>setEditCatVal(e.target.value),
+              onBlur:finishEditCat,
+              onKeyDown:e=>{if(e.key==='Enter')finishEditCat();if(e.key==='Escape')setEditCat(null);}
+            })
+          :h('span',{className:'nav-label'},cat),
+        editCat!==cat&&h('div',{className:'sidebar-cat-actions'},
+          h('span',{className:'sidebar-cat-count',style:{fontSize:11,color:'var(--text-muted)'}},ideas.filter(i=>i.category===cat).length||''),
+          h('button',{className:'sidebar-cat-edit-btn',title:'Rename',onClick:e=>{e.stopPropagation();startEditCat(cat);}},h('i',{className:'ti ti-pencil'})),
+          cat!=='Misc'&&h('button',{className:'sidebar-cat-edit-btn',title:'Delete',onClick:e=>{e.stopPropagation();upd({ideas:ideas.map(i=>i.category===cat?{...i,category:'Misc'}:i),categories:categories.filter(c=>c!==cat)});}},h('i',{className:'ti ti-trash'}))
+        )
       )),
       h('div',{className:'nav-item sidebar-add-cat',style:{opacity:.6,fontSize:12},onClick:addCategory},h('i',{className:'ti ti-plus'}),h('span',{className:'nav-label'},'Add category')),
       h('div',{style:{flex:1}}),
