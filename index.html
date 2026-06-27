@@ -114,6 +114,9 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);
 .conn-pill{font-size:10px;color:var(--text-accent);background:var(--bg-accent);padding:1px 7px;border-radius:20px;cursor:pointer;border:none}
 
 .status-menu{position:absolute;background:var(--surface-2);border:0.5px solid var(--border);border-radius:var(--radius);box-shadow:0 4px 12px rgba(0,0,0,.08);z-index:50;min-width:150px;overflow:hidden;top:100%;right:0;margin-top:4px}
+.move-menu{position:absolute;background:var(--surface-2);border:0.5px solid var(--border);border-radius:var(--radius);box-shadow:0 4px 12px rgba(0,0,0,.08);z-index:50;min-width:160px;overflow:hidden;top:100%;right:0;margin-top:4px;max-height:200px;overflow-y:auto}
+.move-opt{padding:.4rem .75rem;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:.5rem}
+.move-opt:hover{background:var(--surface-1)}
 .status-opt{padding:.4rem .75rem;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:.5rem}
 .status-opt:hover{background:var(--surface-1)}
 .idea-ctrl-wrap{position:relative}
@@ -204,14 +207,19 @@ function StatusBadge({status}){
   return s?h('span',{className:'status-badge '+s.c},s.l):null;
 }
 
-function IdeaCard({idea,ideas,connections,onUpdate,onDelete,onConnect,dragging,dragOver,onDragStart,onDragEnd,onDragOver,onDrop}){
+function IdeaCard({idea,ideas,allCategories,connections,onUpdate,onDelete,onConnect,dragging,dragOver,onDragStart,onDragEnd,onDragOver,onDrop}){
   const [showStatus,setShowStatus]=useState(false);
+  const [showMove,setShowMove]=useState(false);
   const [editing,setEditing]=useState(false);
   const [editVal,setEditVal]=useState('');
   const ref=useRef();
   const editRef=useRef();
+  const moveRef=useRef();
   useEffect(()=>{
-    function click(e){if(ref.current&&!ref.current.contains(e.target))setShowStatus(false);}
+    function click(e){
+      if(ref.current&&!ref.current.contains(e.target))setShowStatus(false);
+      if(moveRef.current&&!moveRef.current.contains(e.target))setShowMove(false);
+    }
     document.addEventListener('mousedown',click);
     return()=>document.removeEventListener('mousedown',click);
   },[]);
@@ -259,6 +267,15 @@ function IdeaCard({idea,ideas,connections,onUpdate,onDelete,onConnect,dragging,d
     ),
     h('div',{className:'idea-controls'},
       h('button',{className:'idea-mini-btn',title:'Edit',onClick:startEdit},h('i',{className:'ti ti-pencil'})),
+      h('div',{className:'idea-ctrl-wrap',ref:moveRef,style:{position:'relative'}},
+        h('button',{className:'idea-mini-btn',title:'Move to category',onClick:()=>setShowMove(s=>!s)},h('i',{className:'ti ti-folder'})),
+        showMove&&h('div',{className:'move-menu'},
+          allIdeas.length>0&&h('div',{style:{padding:'.25rem .75rem',fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'.06em'}},'Move to'),
+          allCategories.filter(c=>c!==idea.category).map(c=>h('div',{key:c,className:'move-opt',onClick:()=>{onUpdate({category:c});setShowMove(false);}},
+            h('span',{style:{width:7,height:7,borderRadius:'50%',background:CATEGORY_COLORS[c]||'#888',display:'inline-block',flexShrink:0}}),c
+          ))
+        )
+      ),
       h('div',{className:'idea-ctrl-wrap',ref:ref},
         h('button',{className:'idea-mini-btn',title:'Set status',onClick:()=>setShowStatus(s=>!s)},h('i',{className:'ti ti-tag'})),
         showStatus&&h('div',{className:'status-menu'},
@@ -566,7 +583,7 @@ function App(){
           ),
           categories.map(cat=>{
             const catIdeas=grouped[cat]||[];
-            if(catIdeas.length===0)return null;
+            if(catIdeas.length===0&&search)return null;
             return h('div',{key:cat,className:'category-section'},
               h('div',{className:'cat-header'},
                 h(CatDot,{cat}),
@@ -580,6 +597,7 @@ function App(){
                   cat!=='Misc'&&h('button',{className:'cat-mini-btn',title:'Remove category',onClick:()=>upd({ideas:ideas.map(i=>i.category===cat?{...i,category:'Misc'}:i),categories:categories.filter(c=>c!==cat)})},h('i',{className:'ti ti-trash'}))
                 )
               ),
+              catIdeas.length===0&&h('div',{style:{padding:'.75rem 1rem',fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}},'No ideas yet — drag one here or use the move button'),
               catIdeas.map(idea=>h(IdeaCard,{
                 key:idea.id,idea,ideas,connections,
                 dragging:dragId===idea.id,dragOver:dragOverId===idea.id,
@@ -587,6 +605,7 @@ function App(){
                 onDragEnd:()=>{setDragId(null);setDragOverId(null);},
                 onDragOver:id=>setDragOverId(id),
                 onDrop:targetCat=>{if(dragId&&dragId!==idea.id)updateIdea(dragId,{category:targetCat});setDragId(null);setDragOverId(null);},
+                allCategories:categories,
                 onUpdate:patch=>updateIdea(idea.id,patch),
                 onDelete:()=>deleteIdea(idea.id),
                 onConnect:id=>{setConnModal(id);setConnTarget('');}
