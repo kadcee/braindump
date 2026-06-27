@@ -69,26 +69,26 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);
 .search-wrap i{color:var(--text-muted);font-size:14px}
 .btn{border:0.5px solid var(--border-strong);background:transparent;border-radius:var(--radius);padding:.35rem .75rem;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--text-primary);transition:background .15s}
 .btn:hover{background:var(--surface-0)}
-.btn.primary{background:var(--text-primary);color:#fff;border-color:transparent}
+.btn.primary{background:var(--text-primary);color:var(--surface-0);border-color:transparent}
 .btn.primary:hover{opacity:.85}
+.dark .btn.primary{background:#6ab0f5;color:#0a1929;border-color:transparent}
 .btn.active{background:var(--bg-accent);color:var(--text-accent);border-color:var(--border-accent)}
 .btn i{font-size:14px}
 
 .content{flex:1;min-height:0;overflow-y:auto;padding:1.25rem;width:100%}
 
-.capture-box{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.25rem}
+.capture-box{background:var(--surface-2);border:0.5px solid var(--border-strong);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.25rem}
 .capture-row{display:flex;gap:.5rem;align-items:flex-end}
 .capture-textarea{flex:1;border:none;background:transparent;resize:none;font-size:15px;color:var(--text-primary);outline:none;font-family:inherit;line-height:1.5;min-height:54px}
 .capture-textarea::placeholder{color:var(--text-muted)}
 .capture-actions{display:flex;gap:.4rem;align-items:center}
-.icon-btn{width:32px;height:32px;border:0.5px solid var(--border);background:transparent;border-radius:var(--radius);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);transition:all .15s}
-.icon-btn:hover{background:var(--surface-1);color:var(--text-primary)}
+.icon-btn{width:32px;height:32px;border:0.5px solid var(--border-strong);background:var(--surface-1);border-radius:var(--radius);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);transition:all .15s}
+.icon-btn:hover{background:var(--surface-0);color:var(--text-primary)}
 .icon-btn.recording{background:var(--bg-danger);border-color:var(--border-danger);color:var(--text-danger)}
 .icon-btn i{font-size:15px}
 .ai-status{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);padding:.4rem 0}
 .ai-dot{width:6px;height:6px;border-radius:50%;background:var(--text-muted);animation:pulse 1.2s infinite}
 @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
-.quick-banner{display:flex;align-items:center;gap:.4rem;font-size:12px;color:var(--text-accent);background:var(--bg-accent);border:0.5px solid var(--border-accent);border-radius:8px;padding:.4rem .75rem;margin-bottom:.6rem}
 
 .category-section{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;margin-bottom:.75rem}
 .cat-header{padding:.65rem 1rem;display:flex;align-items:center;gap:.6rem;background:var(--surface-1);border-bottom:0.5px solid var(--border)}
@@ -433,7 +433,6 @@ function App(){
   const [search,setSearch]=useState('');
   const [text,setText]=useState('');
   const [aiMsg,setAiMsg]=useState('');
-  const [quick,setQuick]=useState(false);
   const [recording,setRecording]=useState(false);
   const [editCat,setEditCat]=useState(null);
   const [editCatVal,setEditCatVal]=useState('');
@@ -594,7 +593,6 @@ function App(){
         h('div',{className:'search-wrap'},h('i',{className:'ti ti-search'}),h('input',{type:'text',placeholder:'Search ideas or status...',value:search,onChange:e=>setSearch(e.target.value)})),
         h('button',{className:'btn'+(statusFilter==='revisit'?' active':''),onClick:()=>setStatusFilter(f=>f==='revisit'?'':'revisit'),style:{fontSize:12}},'Revisit'),
         h('button',{className:'btn'+(statusFilter==='explore'?' active':''),onClick:()=>setStatusFilter(f=>f==='explore'?'':'explore'),style:{fontSize:12}},'Explore'),
-        h('button',{className:'btn'+(quick?' active':''),onClick:()=>setQuick(q=>!q)},h('i',{className:'ti ti-zap'}),'Quick')
       ),
       h('div',{className:'content'},
         view==='map'&&h(MapView,{ideas:filtered,categories,connections}),
@@ -609,7 +607,6 @@ function App(){
             }
           }
         },
-          quick&&h('div',{className:'quick-banner'},h('i',{className:'ti ti-zap'}),'Quick capture · Enter to add'),
           dropActive&&h('div',{className:'drop-zone drag-active'},
             h('i',{className:'ti ti-file-import'}),
             'Drop your braindump JSON here'
@@ -623,8 +620,7 @@ function App(){
             h('div',{className:'capture-row'},
               h('textarea',{ref:taRef,className:'capture-textarea',placeholder:'Dump a thought...',value:text,onChange:e=>setText(e.target.value),
                 onKeyDown:e=>{
-                  if(quick&&e.key==='Enter'&&!e.shiftKey){e.preventDefault();capture();}
-                  if(!quick&&(e.metaKey||e.ctrlKey)&&e.key==='Enter'){capture();}
+                  if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){capture();}
                 }}),
               h('div',{className:'capture-actions'},
                 h('button',{className:'icon-btn'+(recording?' recording':''),onClick:recording?stopVoice:startVoice,title:recording?'Stop':'Voice'},h('i',{className:'ti '+(recording?'ti-microphone-off':'ti-microphone')})),
