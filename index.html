@@ -152,6 +152,13 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);
 
 .cat-title-edit{background:transparent;border:none;border-bottom:1px solid var(--border-accent);font-size:13px;font-weight:500;color:var(--text-primary);outline:none;padding:0 2px;width:140px;font-family:inherit}
 .empty-state{text-align:center;padding:3rem 1rem;color:var(--text-muted);font-size:14px;line-height:1.8}
+.priority-section{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:.75rem;width:100%}
+.priority-header{padding:.65rem 1rem;display:flex;align-items:center;gap:.6rem;background:var(--surface-1);border-bottom:0.5px solid var(--border)}
+.priority-title{font-size:13px;font-weight:500;flex:1}
+.priority-count{font-size:11px;color:var(--text-muted);background:var(--surface-0);padding:1px 7px;border-radius:20px}
+.unsorted-banner{display:flex;align-items:center;gap:.5rem;padding:.5rem 1rem;font-size:12px;background:#fdf6ec;border-bottom:0.5px solid #f0d9b5;color:#854f0b}
+.unsorted-banner i{font-size:14px}
+.idea-cat-pill{font-size:10px;padding:1px 7px;border-radius:20px;font-weight:400;background:var(--surface-0);color:var(--text-secondary);border:0.5px solid var(--border)}
 .empty-state i{font-size:32px;display:block;margin-bottom:.75rem}
 .export-msg{padding:.4rem 1rem;font-size:11px;color:var(--text-accent)}
 .drop-zone{border:1.5px dashed var(--border-strong);border-radius:12px;padding:1.25rem;text-align:center;font-size:13px;color:var(--text-muted);margin-bottom:1rem;transition:all .15s;cursor:pointer;background:var(--surface-2)}
@@ -257,6 +264,7 @@ function IdeaCard({idea,allCategories,connections,onUpdate,onDelete,onConnect,dr
           )
         :h('div',{className:'idea-meta'},
             h('span',{className:'idea-time'},fmtTime(idea.created)),
+            h('span',{className:'idea-cat-pill'},idea.category),
             h(StatusBadge,{status:idea.status}),
             myConns.length>0&&h('button',{className:'conn-pill',onClick:()=>onConnect(idea.id)},myConns.length+' link'+(myConns.length>1?'s':''))
           )
@@ -511,8 +519,7 @@ function App(){
     e.target.value='';
   }
 
-  const grouped={};
-  categories.forEach(c=>{grouped[c]=filtered.filter(i=>i.category===c);});
+  // priority view — no category grouping needed in main view
   const navItems=[{id:'capture',icon:'ti-bolt',l:'Capture'},{id:'map',icon:'ti-network',l:'Mind map'},{id:'week',icon:'ti-calendar-week',l:'Weekly digest'}];
 
   return h('div',{id:'app'},
@@ -575,47 +582,46 @@ function App(){
             ),
             aiMsg&&h('div',{className:'ai-status'},h('span',{className:'ai-dot'}),aiMsg)
           ),
-          categories.map(cat=>{
-            const catIdeas=grouped[cat]||[];
-            if(catIdeas.length===0&&search)return null;
-            return h('div',{key:cat,className:'category-section',
-              onDragOver:e=>e.preventDefault(),
-              onDrop:e=>{e.preventDefault();if(dragId)updateIdea(dragId,{category:cat});setDragId(null);setDragOverId(null);}
-            },
-              h('div',{className:'cat-header'},
-                h(CatDot,{cat}),
-                editCat===cat
-                  ?h('input',{className:'cat-title-edit',value:editCatVal,autoFocus:true,onChange:e=>setEditCatVal(e.target.value),onBlur:finishEditCat,onKeyDown:e=>{if(e.key==='Enter')finishEditCat();if(e.key==='Escape')setEditCat(null);}})
-                  :h('span',{className:'cat-title'},cat),
-                h('span',{className:'cat-count'},catIdeas.length),
-                h('div',{className:'cat-actions'},
-                  h('button',{className:'cat-mini-btn',title:'Rename',onClick:()=>startEditCat(cat)},h('i',{className:'ti ti-pencil'})),
-                  h('button',{className:'cat-mini-btn',title:'Merge into...',onClick:()=>setMergeModal(cat)},h('i',{className:'ti ti-arrows-join'})),
-                  cat!=='Misc'&&h('button',{className:'cat-mini-btn',title:'Remove category',onClick:()=>upd({ideas:ideas.map(i=>i.category===cat?{...i,category:'Misc'}:i),categories:categories.filter(c=>c!==cat)})},h('i',{className:'ti ti-trash'}))
-                )
-              ),
-              catIdeas.length===0&&h('div',{style:{padding:'.75rem 1rem',fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}},'No ideas yet — drag one here or use the move button'),
-              catIdeas.map(idea=>h(IdeaCard,{
-                key:idea.id,idea,ideas,connections,
-                dragging:dragId===idea.id,dragOver:dragOverId===idea.id,
-                onDragStart:id=>setDragId(id),
-                onDragEnd:()=>{setDragId(null);setDragOverId(null);},
-                onDragOver:id=>setDragOverId(id),
-                onDrop:targetCat=>{if(dragId&&dragId!==idea.id)updateIdea(dragId,{category:targetCat});setDragId(null);setDragOverId(null);},
-                allCategories:categories,
-                onUpdate:patch=>updateIdea(idea.id,patch),
-                onDelete:()=>deleteIdea(idea.id),
-                onConnect:id=>{setConnModal(id);setConnTarget('');}
-              })),
-              catIdeas.length===0&&h('div',{
-                style:{height:40},
-                onDragOver:e=>e.preventDefault(),
-                onDrop:e=>{e.preventDefault();if(dragId)updateIdea(dragId,{category:cat});setDragId(null);setDragOverId(null);}
-              })
-            );
-          }),
-          ideas.length===0&&h('div',{className:'empty-state'},h('i',{className:'ti ti-brain'}),'Type a thought above.','',h('br'),h('span',{style:{fontSize:12,opacity:.7}},'AI sorts it automatically.')),
-          search&&filtered.length===0&&h('div',{className:'empty-state'},h('i',{className:'ti ti-search-off'}),'No ideas match "'+search+'"')
+          (()=>{
+            const revisit=filtered.filter(i=>i.status==='revisit');
+            const explore=filtered.filter(i=>i.status==='explore');
+            const unsorted=filtered.filter(i=>!i.status);
+            const archived=filtered.filter(i=>i.status==='archive');
+            const sections=[
+              {key:'revisit',label:'Revisit Soon',color:'#854f0b',bg:'#faeeda',ideas:revisit},
+              {key:'explore',label:'Explore Later',color:'#0f6e56',bg:'#e1f5ee',ideas:explore},
+              {key:'unsorted',label:'Unsorted',color:'var(--text-muted)',bg:'var(--surface-0)',ideas:unsorted,banner:true},
+              {key:'archive',label:'Archive',color:'#5f5e5a',bg:'#f1efe8',ideas:archived},
+            ];
+            const makeCard=idea=>h(IdeaCard,{
+              key:idea.id,idea,connections,
+              dragging:dragId===idea.id,dragOver:dragOverId===idea.id,
+              onDragStart:id=>setDragId(id),
+              onDragEnd:()=>{setDragId(null);setDragOverId(null);},
+              onDragOver:id=>setDragOverId(id),
+              onDrop:()=>{setDragId(null);setDragOverId(null);},
+              allCategories:categories,
+              onUpdate:patch=>updateIdea(idea.id,patch),
+              onDelete:()=>deleteIdea(idea.id),
+              onConnect:id=>{setConnModal(id);setConnTarget('');}
+            });
+            return [
+              ideas.length===0&&h('div',{key:'empty',className:'empty-state'},h('i',{className:'ti ti-brain'}),'Type a thought above.',h('br'),h('span',{style:{fontSize:12,opacity:.7}},'AI sorts it automatically.')),
+              search&&filtered.length===0&&h('div',{key:'nosearch',className:'empty-state'},h('i',{className:'ti ti-search-off'}),'No ideas match "'+search+'"'),
+              ...sections.map(sec=>sec.ideas.length===0?null:h('div',{key:sec.key,className:'priority-section'},
+                h('div',{className:'priority-header'},
+                  h('span',{style:{width:8,height:8,borderRadius:'50%',background:sec.color,display:'inline-block',flexShrink:0}}),
+                  h('span',{className:'priority-title'},sec.label),
+                  h('span',{className:'priority-count'},sec.ideas.length)
+                ),
+                sec.banner&&h('div',{className:'unsorted-banner'},
+                  h('i',{className:'ti ti-alert-circle'}),
+                  'These need a status — hover each entry and set Revisit Soon or Explore Later'
+                ),
+                sec.ideas.map(makeCard)
+              ))
+            ];
+          })()
         )
       )
     ),
