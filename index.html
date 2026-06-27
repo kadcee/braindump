@@ -17,6 +17,13 @@
   --bg-danger:#fcebeb;--border-danger:#f09595;--text-danger:#a32d2d;
   --radius:8px;
 }
+.dark{
+  --surface-0:#18181b;--surface-1:#1f1f23;--surface-2:#27272b;
+  --text-primary:#f0f0ee;--text-secondary:#a0a09d;--text-muted:#666;
+  --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.14);
+  --bg-accent:#1a2d42;--border-accent:#378add;--text-accent:#6ab0f5;
+  --bg-danger:#2d1a1a;--border-danger:#7a3535;--text-danger:#f09595;
+}
 body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);color:var(--text-primary);min-height:100vh}
 #app{display:flex;height:100vh;width:100vw;overflow:hidden}
 
@@ -38,6 +45,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);
 .cat-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;display:inline-block}
 .sidebar-toggle{width:100%;padding:.35rem;border:none;background:transparent;cursor:pointer;color:var(--text-muted);font-size:18px;display:flex;align-items:center;justify-content:center;margin-bottom:.25rem}
 .sidebar-toggle:hover{color:var(--text-primary)}
+.dark-toggle{width:100%;padding:.35rem;border:none;background:transparent;cursor:pointer;color:var(--text-muted);font-size:15px;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:.25rem}
+.dark-toggle:hover{color:var(--text-primary)}
 
 .main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
 .topbar{width:100%;padding:.6rem 1rem;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:.5rem;background:var(--surface-1);flex-shrink:0}
@@ -200,15 +209,24 @@ async function aiCategorize(text){
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-6',max_tokens:200,
-        messages:[{role:'user',content:`Categorize this thought into exactly one of: Work, Personal, Ideas, Health, Learning, Goals, Finance, Misc. Return ONLY valid JSON with no markdown: {"category":"<one of the above>"}\n\nThought: ${text}`}]
+        model:'claude-sonnet-4-6',max_tokens:300,
+        messages:[{role:'user',content:`You are a personal thought organizer. Analyze this thought and return ONLY valid JSON with no markdown:
+{"category":"<one of: Work, Personal, Ideas, Health, Learning, Goals, Finance, Misc>","status":"<one of: revisit, explore, archive, or null>"}
+
+Rules for status:
+- "revisit": time-sensitive, has a deadline, needs action soon, contains words like "by", "this week", "today", "need to", "must", "birthday", "deadline", "challenge", "plan for"
+- "explore": interesting idea worth developing later, no urgency, creative or future-oriented
+- "archive": completed, resolved, or purely informational with no action needed
+- null: unclear urgency, let the user decide
+
+Thought: ${text}`}]
       })
     });
     const data=await r.json();
     const txt=(data.content||[]).find(b=>b.type==='text')?.text||'{}';
     const parsed=JSON.parse(txt.replace(/```json|```/g,'').trim());
-    return parsed.category||'Misc';
-  }catch(e){return'Misc';}
+    return {category:parsed.category||'Misc',status:parsed.status||null};
+  }catch(e){return{category:'Misc',status:null};}
 }
 
 function CatDot({cat}){return h('span',{className:'cat-dot',style:{background:CAT_COLORS[cat]||'#888'}});}
@@ -363,6 +381,7 @@ function WeekView({ideas}){
   const starred=ideas.filter(i=>i.starred).length;
   const revisit=ideas.filter(i=>i.status==='revisit').length;
   const explore=ideas.filter(i=>i.status==='explore').length;
+  const archived=ideas.filter(i=>i.status==='archive').length;
   return h('div',{className:'week-grid'},
     h('div',{className:'digest-header'},
       h('div',{style:{fontSize:14,fontWeight:500}},'Weekly digest'),
@@ -371,7 +390,8 @@ function WeekView({ideas}){
         h('div',null,h('div',{className:'digest-num'},ideas.length),h('div',{className:'digest-label'},'total ideas')),
         h('div',null,h('div',{className:'digest-num'},starred),h('div',{className:'digest-label'},'starred')),
         h('div',null,h('div',{className:'digest-num'},revisit),h('div',{className:'digest-label'},'revisit soon')),
-        h('div',null,h('div',{className:'digest-num'},explore),h('div',{className:'digest-label'},'explore later'))
+        h('div',null,h('div',{className:'digest-num'},explore),h('div',{className:'digest-label'},'explore later')),
+        h('div',null,h('div',{className:'digest-num'},archived),h('div',{className:'digest-label'},'archived'))
       )
     ),
     sorted.length===0&&h('div',{className:'empty-state'},h('i',{className:'ti ti-calendar-off'}),'No ideas yet'),
@@ -380,6 +400,7 @@ function WeekView({ideas}){
       dayIdeas.map(idea=>h('div',{key:idea.id,className:'week-idea'},
         idea.starred&&h('i',{className:'ti ti-star-filled',style:{color:'#ba7517',fontSize:12}}),
         h('span',{style:{flex:1}},idea.text.length>80?idea.text.slice(0,77)+'...':idea.text),
+        h('span',{className:'idea-cat-pill',style:{marginLeft:'auto'}},idea.category),
         h(StatusBadge,{status:idea.status})
       ))
     ))
@@ -423,6 +444,12 @@ function App(){
   const [dragOverId,setDragOverId]=useState(null);
   const [exportMsg,setExportMsg]=useState('');
   const [sidebarOpen,setSidebarOpen]=useState(true);
+  const [darkMode,setDarkMode]=useState(()=>{try{return localStorage.getItem('braindump_dark')==='1';}catch(e){return false;}});
+  const [statusFilter,setStatusFilter]=useState('');
+  useEffect(()=>{
+    document.body.classList.toggle('dark',darkMode);
+    try{localStorage.setItem('braindump_dark',darkMode?'1':'0');}catch(e){}
+  },[darkMode]);
   const recogRef=useRef();
   const taRef=useRef();
   const [dropActive,setDropActive]=useState(false);
@@ -452,9 +479,10 @@ function App(){
   }
 
   const filtered=ideas.filter(i=>{
-    if(!search)return true;
     const s=search.toLowerCase();
-    return i.text.toLowerCase().includes(s)||i.category.toLowerCase().includes(s);
+    const matchesSearch=!search||i.text.toLowerCase().includes(s)||i.category.toLowerCase().includes(s)||(i.status||'').toLowerCase().includes(s);
+    const matchesStatus=!statusFilter||i.status===statusFilter;
+    return matchesSearch&&matchesStatus;
   });
 
   async function capture(){
@@ -462,9 +490,9 @@ function App(){
     const t=text.trim();
     setText('');
     setAiMsg('AI is organizing...');
-    const cat=await aiCategorize(t);
-    const finalCat=categories.includes(cat)?cat:'Misc';
-    const idea={id:uid(),text:t,category:finalCat,created:ts(),starred:false,status:null};
+    const result=await aiCategorize(t);
+    const finalCat=categories.includes(result.category)?result.category:'Misc';
+    const idea={id:uid(),text:t,category:finalCat,created:ts(),starred:false,status:result.status||null};
     upd({ideas:[idea,...ideas]});
     setAiMsg('');
     if(quick)taRef.current?.focus();
@@ -551,6 +579,10 @@ function App(){
       )),
       h('div',{className:'nav-item sidebar-add-cat',style:{opacity:.6,fontSize:12},onClick:addCategory},h('i',{className:'ti ti-plus'}),h('span',{className:'nav-label'},'Add category')),
       h('div',{style:{flex:1}}),
+      h('button',{className:'dark-toggle',onClick:()=>setDarkMode(d=>!d),title:'Toggle dark mode'},
+        h('i',{className:'ti '+(darkMode?'ti-sun':'ti-moon')}),
+        h('span',{className:'nav-label'},darkMode?'Light mode':'Dark mode')
+      ),
       h('div',{className:'sidebar-section'},'Sync'),
       h('div',{className:'nav-item',style:{fontSize:12},onClick:exportJSON},h('i',{className:'ti ti-download'}),h('span',{className:'nav-label'},'Export JSON')),
       h('div',{className:'nav-item',style:{fontSize:12},onClick:()=>document.getElementById('import-input').click()},h('i',{className:'ti ti-upload'}),h('span',{className:'nav-label'},'Import JSON')),
@@ -559,7 +591,9 @@ function App(){
     ),
     h('div',{className:'main'},
       h('div',{className:'topbar'},
-        h('div',{className:'search-wrap'},h('i',{className:'ti ti-search'}),h('input',{type:'text',placeholder:'Search ideas...',value:search,onChange:e=>setSearch(e.target.value)})),
+        h('div',{className:'search-wrap'},h('i',{className:'ti ti-search'}),h('input',{type:'text',placeholder:'Search ideas or status...',value:search,onChange:e=>setSearch(e.target.value)})),
+        h('button',{className:'btn'+(statusFilter==='revisit'?' active':''),onClick:()=>setStatusFilter(f=>f==='revisit'?'':'revisit'),style:{fontSize:12}},'Revisit'),
+        h('button',{className:'btn'+(statusFilter==='explore'?' active':''),onClick:()=>setStatusFilter(f=>f==='explore'?'':'explore'),style:{fontSize:12}},'Explore'),
         h('button',{className:'btn'+(quick?' active':''),onClick:()=>setQuick(q=>!q)},h('i',{className:'ti ti-zap'}),'Quick')
       ),
       h('div',{className:'content'},
