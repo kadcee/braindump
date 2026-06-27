@@ -55,6 +55,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);
   .content{padding:1rem}
   .due-input{display:none!important}
   .idea-mini-select{display:none!important}
+  .mobile-only{display:flex!important}
   .sidebar{width:44px!important;min-width:44px!important}
   .sidebar-logo{display:none}
   .sidebar-section{display:none}
@@ -128,8 +129,12 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);
 @media(max-width:600px){.idea-controls{opacity:1}}
 .idea-mini-btn{width:22px;height:22px;border:none;background:transparent;cursor:pointer;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px}
 .idea-mini-btn:hover{background:var(--surface-0);color:var(--text-primary)}
+.mobile-only{display:none}
 .idea-mini-select{height:22px;border:0.5px solid var(--border);border-radius:4px;background:var(--surface-0);color:var(--text-secondary);font-size:11px;padding:0 2px;cursor:pointer;max-width:80px}
 .idea-mini-select:hover{border-color:var(--border-strong);color:var(--text-primary)}
+.cat-modal-opt{padding:.5rem .75rem;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:.6rem;border-radius:6px}
+.cat-modal-opt:hover{background:var(--surface-1)}
+.cat-modal-opt.active{background:var(--bg-accent);color:var(--text-accent)}
 .idea-edit-area{width:100%;border:none;border-bottom:1px solid var(--border-accent,#378add);background:transparent;font-size:14px;line-height:1.5;color:var(--text-primary);outline:none;font-family:inherit;resize:none;padding:0;margin-bottom:.25rem}
 .conn-pill{font-size:10px;color:var(--text-accent);background:var(--bg-accent);padding:1px 7px;border-radius:20px;cursor:pointer;border:none}
 
@@ -288,6 +293,7 @@ function StatusBadge({status}){
 
 function IdeaCard({idea,allCategories,connections,onUpdate,onDelete,onConnect,dragging,dragOver,onDragStart,onDragEnd,onDragOver,onDrop}){
   const [showStatus,setShowStatus]=useState(false);
+  const [showMove,setShowMove]=useState(false);
   const [editing,setEditing]=useState(false);
   const [editVal,setEditVal]=useState('');
   const ref=useRef();
@@ -355,6 +361,19 @@ function IdeaCard({idea,allCategories,connections,onUpdate,onDelete,onConnect,dr
         onChange:e=>onUpdate({category:e.target.value}),
         title:'Move to category'
       },cats.map(c=>h('option',{key:c,value:c},c))),
+      h('button',{className:'idea-mini-btn mobile-only',title:'Move to category',onClick:()=>setShowMove(true)},h('i',{className:'ti ti-folder'})),
+      showMove&&h('div',{className:'overlay',onClick:e=>{if(e.target.className==='overlay')setShowMove(false);}},
+        h('div',{className:'modal'},
+          h('h3',null,'Move to category'),
+          h('div',{style:{maxHeight:'60vh',overflowY:'auto'}},
+            cats.map(c=>h('div',{key:c,className:'cat-modal-opt'+(c===idea.category?' active':''),
+              onClick:()=>{onUpdate({category:c});setShowMove(false);}},
+              h('i',{className:'ti '+(CAT_ICONS[c]||'ti-tag'),style:{color:CAT_COLORS[c]||'var(--text-muted)',fontSize:16}}),c
+            ))
+          ),
+          h('div',{className:'modal-actions'},h('button',{className:'btn',onClick:()=>setShowMove(false)},'Cancel'))
+        )
+      ),
       h('div',{className:'idea-ctrl-wrap',ref:ref},
         h('button',{className:'idea-mini-btn',title:'Set status',onClick:()=>setShowStatus(s=>!s)},h('i',{className:'ti ti-tag'})),
         showStatus&&h('div',{className:'status-menu'},
