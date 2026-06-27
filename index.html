@@ -81,7 +81,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);
 @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
 .quick-banner{display:flex;align-items:center;gap:.4rem;font-size:12px;color:var(--text-accent);background:var(--bg-accent);border:0.5px solid var(--border-accent);border-radius:8px;padding:.4rem .75rem;margin-bottom:.6rem}
 
-.category-section{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:.75rem}
+.category-section{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;margin-bottom:.75rem}
 .cat-header{padding:.65rem 1rem;display:flex;align-items:center;gap:.6rem;background:var(--surface-1);border-bottom:0.5px solid var(--border)}
 .cat-header:hover .cat-actions{opacity:1}
 .cat-title{font-size:13px;font-weight:500;flex:1}
@@ -152,7 +152,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);
 
 .cat-title-edit{background:transparent;border:none;border-bottom:1px solid var(--border-accent);font-size:13px;font-weight:500;color:var(--text-primary);outline:none;padding:0 2px;width:140px;font-family:inherit}
 .empty-state{text-align:center;padding:3rem 1rem;color:var(--text-muted);font-size:14px;line-height:1.8}
-.priority-section{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:.75rem;width:100%}
+.priority-section{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;margin-bottom:.75rem;width:100%}
 .priority-header{padding:.65rem 1rem;display:flex;align-items:center;gap:.6rem;background:var(--surface-1);border-bottom:0.5px solid var(--border)}
 .priority-title{font-size:13px;font-weight:500;flex:1}
 .priority-count{font-size:11px;color:var(--text-muted);background:var(--surface-0);padding:1px 7px;border-radius:20px}
@@ -386,6 +386,23 @@ function WeekView({ideas}){
   );
 }
 
+function PrioritySection({sec,makeCard}){
+  const [collapsed,setCollapsed]=useState(false);
+  return h('div',{className:'priority-section'},
+    h('div',{className:'priority-header',style:{cursor:'pointer'},onClick:()=>setCollapsed(c=>!c)},
+      h('span',{style:{width:8,height:8,borderRadius:'50%',background:sec.color,display:'inline-block',flexShrink:0}}),
+      h('span',{className:'priority-title'},sec.label),
+      h('span',{className:'priority-count'},sec.ideas.length),
+      h('i',{className:'ti '+(collapsed?'ti-chevron-right':'ti-chevron-down'),style:{fontSize:13,color:'var(--text-muted)',marginLeft:'auto'}})
+    ),
+    !collapsed&&sec.banner&&h('div',{className:'unsorted-banner'},
+      h('i',{className:'ti ti-alert-circle'}),
+      'These need a status — set Revisit Soon or Explore Later on each entry'
+    ),
+    !collapsed&&sec.ideas.map(makeCard)
+  );
+}
+
 function App(){
   const [data,setData]=useState(load);
   const {ideas,categories,connections}=data;
@@ -608,18 +625,9 @@ function App(){
             return [
               ideas.length===0&&h('div',{key:'empty',className:'empty-state'},h('i',{className:'ti ti-brain'}),'Type a thought above.',h('br'),h('span',{style:{fontSize:12,opacity:.7}},'AI sorts it automatically.')),
               search&&filtered.length===0&&h('div',{key:'nosearch',className:'empty-state'},h('i',{className:'ti ti-search-off'}),'No ideas match "'+search+'"'),
-              ...sections.map(sec=>sec.ideas.length===0?null:h('div',{key:sec.key,className:'priority-section'},
-                h('div',{className:'priority-header'},
-                  h('span',{style:{width:8,height:8,borderRadius:'50%',background:sec.color,display:'inline-block',flexShrink:0}}),
-                  h('span',{className:'priority-title'},sec.label),
-                  h('span',{className:'priority-count'},sec.ideas.length)
-                ),
-                sec.banner&&h('div',{className:'unsorted-banner'},
-                  h('i',{className:'ti ti-alert-circle'}),
-                  'These need a status — hover each entry and set Revisit Soon or Explore Later'
-                ),
-                sec.ideas.map(makeCard)
-              ))
+              ...sections.map(sec=>sec.ideas.length===0?null:h(PrioritySection,{
+                key:sec.key,sec,makeCard
+              }))
             ];
           })()
         )
