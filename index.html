@@ -103,7 +103,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);
 .nav-item:hover .sidebar-cat-actions{display:flex}
 .sidebar-cat-edit-btn{width:20px;height:20px;border:none;background:transparent;cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px;padding:0}
 .sidebar-cat-edit-btn:hover{background:var(--surface-0);color:var(--text-primary)}
-@media(max-width:600px){.sidebar-cat-actions{display:none!important}}
+
 .cat-mini-btn{width:24px;height:24px;border:none;background:transparent;cursor:pointer;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:13px}
 .cat-mini-btn:hover{background:var(--surface-0);color:var(--text-primary)}
 
@@ -165,6 +165,13 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);
 .modal input,.modal select,.modal textarea{width:100%;border:0.5px solid var(--border);border-radius:var(--radius);padding:.45rem .75rem;font-size:13px;background:var(--surface-1);color:var(--text-primary);outline:none;margin-bottom:.6rem;font-family:inherit}
 .modal input:focus,.modal select:focus{border-color:var(--border-accent)}
 .icon-picker{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:.6rem;max-height:160px;overflow-y:auto}
+.manage-cat-btn{width:22px;height:22px;border:none;background:transparent;cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:13px;padding:0;flex-shrink:0}
+.manage-cat-btn:hover{color:var(--text-primary)}
+@media(max-width:600px){
+  .sidebar-cat-actions{display:none!important}
+  .sidebar-cat-manage{display:flex!important}
+}
+.sidebar-cat-manage{display:none;margin-left:auto}
 .icon-opt{width:36px;height:36px;border:0.5px solid var(--border);border-radius:var(--radius);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);font-size:16px;transition:all .15s}
 .icon-opt:hover{background:var(--surface-1);color:var(--text-primary);border-color:var(--border-strong)}
 .icon-opt.selected{background:var(--bg-accent);border-color:var(--border-accent);color:var(--text-accent)}
@@ -565,6 +572,8 @@ function App(){
         if(!parsed.ideas||!Array.isArray(parsed.ideas)){setExportMsg('Invalid file.');return;}
         const mergedIdeas=[...parsed.ideas,...ideas.filter(i=>!parsed.ideas.find(p=>p.id===i.id))];
         const cleanCats=[...new Set([...(parsed.categories||[]),...categories])];
+        const mergedIcons={...customCatIcons,...(parsed.catIcons||{})};
+        setCustomCatIcons(mergedIcons);saveCatIcons(mergedIcons);
         const merged={
           ideas:mergedIdeas,
           categories:cleanCats,
@@ -625,6 +634,7 @@ function App(){
   }
 
   const [newCatModal,setNewCatModal]=useState(false);
+  const [manageCat,setManageCat]=useState(null);
   const [newCatVal,setNewCatVal]=useState('');
   const [newCatIcon,setNewCatIcon]=useState('ti-tag');
   function addCategory(){setNewCatVal('');setNewCatIcon('ti-tag');setNewCatModal(true);}
@@ -650,7 +660,7 @@ function App(){
   }
 
   function exportJSON(){
-    const blob=new Blob([JSON.stringify({ideas,categories,connections,exported:new Date().toISOString()},null,2)],{type:'application/json'});
+    const blob=new Blob([JSON.stringify({ideas,categories,connections,catIcons:customCatIcons,exported:new Date().toISOString()},null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;a.download='braindump-'+Date.now()+'.json';
@@ -710,7 +720,8 @@ function App(){
           h('span',{className:'sidebar-cat-count',style:{fontSize:11,color:'var(--text-muted)'}},ideas.filter(i=>i.category===cat).length||''),
           h('button',{className:'sidebar-cat-edit-btn',title:'Rename',onClick:e=>{e.stopPropagation();startEditCat(cat);}},h('i',{className:'ti ti-pencil'})),
           cat!=='Misc'&&h('button',{className:'sidebar-cat-edit-btn',title:'Delete',onClick:e=>{e.stopPropagation();upd({ideas:ideas.map(i=>i.category===cat?{...i,category:'Misc'}:i),categories:categories.filter(c=>c!==cat)});}},h('i',{className:'ti ti-trash'}))
-        )
+        ),
+        editCat!==cat&&h('button',{className:'manage-cat-btn sidebar-cat-manage',title:'Manage',onClick:e=>{e.stopPropagation();setManageCat(cat);}},h('i',{className:'ti ti-dots-vertical'}))
       )),
       h('div',{className:'nav-item sidebar-add-cat',style:{opacity:.6,fontSize:12},onClick:addCategory},h('i',{className:'ti ti-plus'}),h('span',{className:'nav-label'},'Add category')),
       h('div',{style:{flex:1}}),
@@ -822,6 +833,16 @@ function App(){
           h('button',{className:'btn primary',onClick:confirmAddCategory},
             h('i',{className:'ti '+newCatIcon,style:{fontSize:13}}),' Add'
           )
+        )
+      )
+    ),
+    manageCat&&h('div',{className:'overlay',onClick:e=>{if(e.target.className==='overlay')setManageCat(null);}},
+      h('div',{className:'modal'},
+        h('h3',null,manageCat),
+        h('div',{className:'modal-actions',style:{flexDirection:'column',gap:'.5rem',alignItems:'stretch'}},
+          h('button',{className:'btn',style:{justifyContent:'flex-start',gap:'.5rem'},onClick:()=>{setManageCat(null);startEditCat(manageCat);}},h('i',{className:'ti ti-pencil'}),'Rename'),
+          manageCat!=='Misc'&&h('button',{className:'btn',style:{justifyContent:'flex-start',gap:'.5rem',color:'var(--text-danger)'},onClick:()=>{upd({ideas:ideas.map(i=>i.category===manageCat?{...i,category:'Misc'}:i),categories:categories.filter(c=>c!==manageCat)});setManageCat(null);}},h('i',{className:'ti ti-trash'}),'Delete (moves ideas to Misc)'),
+          h('button',{className:'btn',onClick:()=>setManageCat(null)},'Cancel')
         )
       )
     ),
