@@ -552,10 +552,8 @@ function App(){
       try{
         const parsed=JSON.parse(evt.target.result);
         if(!parsed.ideas||!Array.isArray(parsed.ideas)){setExportMsg('Invalid file.');return;}
-        const mergedCats=[...new Set([...(parsed.categories||[]),...categories])];
         const mergedIdeas=[...parsed.ideas,...ideas.filter(i=>!parsed.ideas.find(p=>p.id===i.id))];
-        const usedCats=new Set(mergedIdeas.map(i=>i.category));
-        const cleanCats=mergedCats.filter(c=>usedCats.has(c)||['Work','Personal','Ideas','Health','Learning','Goals','Finance','Misc'].includes(c));
+        const cleanCats=[...new Set([...(parsed.categories||[]),...categories])];
         const merged={
           ideas:mergedIdeas,
           categories:cleanCats,
