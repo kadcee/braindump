@@ -168,6 +168,11 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);
 .unsorted-banner{display:flex;align-items:center;gap:.5rem;padding:.5rem 1rem;font-size:12px;background:#fdf6ec;border-bottom:0.5px solid #f0d9b5;color:#854f0b}
 .unsorted-banner i{font-size:14px}
 .idea-cat-pill{font-size:10px;padding:1px 7px;border-radius:20px;font-weight:400;background:var(--surface-0);color:var(--text-secondary);border:0.5px solid var(--border)}
+.due-pill{font-size:10px;padding:1px 7px;border-radius:20px;font-weight:500;display:inline-flex;align-items:center;gap:3px;cursor:pointer;border:none;background:transparent}
+.due-pill.overdue{background:#fcebeb;color:#a32d2d;border:0.5px solid #f09595}
+.due-pill.soon{background:#faeeda;color:#854f0b;border:0.5px solid #f0c070}
+.due-pill.ok{background:var(--surface-0);color:var(--text-secondary);border:0.5px solid var(--border)}
+.due-input{border:0.5px solid var(--border-accent,#378add);border-radius:6px;font-size:11px;padding:2px 6px;color:var(--text-accent,#185fa5);background:var(--bg-accent,#e6f1fb);outline:none;width:130px;margin-left:4px}
 .empty-state i{font-size:32px;display:block;margin-bottom:.75rem}
 .export-msg{padding:.4rem 1rem;font-size:11px;color:var(--text-accent)}
 .drop-zone{border:1.5px dashed var(--border-strong);border-radius:12px;padding:1.25rem;text-align:center;font-size:13px;color:var(--text-muted);margin-bottom:1rem;transition:all .15s;cursor:pointer;background:var(--surface-2)}
@@ -229,6 +234,25 @@ Thought: ${text}`}]
   }catch(e){return{category:'Misc',status:null};}
 }
 
+function duePillClass(due){
+  if(!due)return'ok';
+  const d=new Date(due),now=new Date();
+  now.setHours(0,0,0,0);d.setHours(0,0,0,0);
+  const diff=(d-now)/(1000*60*60*24);
+  if(diff<0)return'overdue';
+  if(diff<=2)return'soon';
+  return'ok';
+}
+function fmtDue(due){
+  if(!due)return'';
+  const d=new Date(due),now=new Date();
+  now.setHours(0,0,0,0);d.setHours(0,0,0,0);
+  const diff=(d-now)/(1000*60*60*24);
+  if(diff<0)return'Overdue';
+  if(diff===0)return'Today';
+  if(diff===1)return'Tomorrow';
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
 function CatDot({cat}){return h('span',{className:'cat-dot',style:{background:CAT_COLORS[cat]||'#888'}});}
 
 function StatusBadge({status}){
@@ -267,7 +291,7 @@ function IdeaCard({idea,allCategories,connections,onUpdate,onDelete,onConnect,dr
     onDragOver:e=>{e.preventDefault();onDragOver(idea.id);},
     onDrop:e=>{e.preventDefault();onDrop(idea.category);}
   },
-    h('button',{className:'star-btn'+(idea.starred?' on':''),onClick:()=>onUpdate({starred:!idea.starred})},'★'),
+    h('button',{className:'star-btn'+(idea.starred?' on':''),onClick:()=>onUpdate({starred:!idea.starred}),title:idea.starred?'Remove favorite':'Mark as favorite'},'★'),
     h('div',{className:'idea-body'},
       editing
         ?h('textarea',{ref:editRef,className:'idea-edit-area',value:editVal,
@@ -284,6 +308,9 @@ function IdeaCard({idea,allCategories,connections,onUpdate,onDelete,onConnect,dr
             h('span',{className:'idea-time'},fmtTime(idea.created)),
             h('span',{className:'idea-cat-pill'},idea.category),
             h(StatusBadge,{status:idea.status}),
+            idea.dueDate
+              ?h('span',{className:'due-pill '+duePillClass(idea.dueDate)},h('i',{className:'ti ti-calendar-event',style:{fontSize:10}}),fmtDue(idea.dueDate))
+              :null,
             myConns.length>0&&h('button',{className:'conn-pill',onClick:()=>onConnect(idea.id)},myConns.length+' link'+(myConns.length>1?'s':''))
           )
     ),
@@ -302,14 +329,18 @@ function IdeaCard({idea,allCategories,connections,onUpdate,onDelete,onConnect,dr
           h('div',{className:'status-opt',onClick:()=>{onUpdate({status:null});setShowStatus(false);}},h('span',{style:{fontSize:13,color:'var(--text-muted)'}},'Clear'))
         )
       ),
+      h('input',{type:'date',className:'due-input',value:idea.dueDate||'',title:'Set due date',
+        onChange:e=>onUpdate({dueDate:e.target.value||null})}),
       h('button',{className:'idea-mini-btn',title:'Link to idea',onClick:()=>onConnect(idea.id)},h('i',{className:'ti ti-link'})),
       h('button',{className:'idea-mini-btn',title:'Delete',onClick:onDelete},h('i',{className:'ti ti-trash'}))
     )
   );
 }
 
+const MAP_POS_KEY='braindump_mappos';
 function MapView({ideas,categories,connections}){
   const [pos,setPos]=useState(()=>{
+    try{const saved=localStorage.getItem(MAP_POS_KEY);if(saved){const p=JSON.parse(saved);if(Object.keys(p).length>0)return p;}}catch(e){}
     const p={};
     categories.forEach((cat,i)=>{p['CAT_'+cat]={x:60+((i%4)*230),y:40+Math.floor(i/4)*280};});
     ideas.forEach((idea)=>{
@@ -337,8 +368,16 @@ function MapView({ideas,categories,connections}){
     const r=ref.current.getBoundingClientRect();
     setPos(p=>({...p,[dragging]:{...p[dragging],x:e.clientX-r.left-dragOff.x,y:e.clientY-r.top-dragOff.y}}));
   }
+  function savePos(p){try{localStorage.setItem(MAP_POS_KEY,JSON.stringify(p));}catch(e){}}
   const catsWithIdeas=categories.filter(c=>ideas.some(i=>i.category===c));
-  return h('div',{className:'map-container',ref,onMouseMove,onMouseUp:()=>setDragging(null),onMouseLeave:()=>setDragging(null)},
+  function resetPos(){try{localStorage.removeItem(MAP_POS_KEY);}catch(e){}window.location.reload();}
+  return h('div',{className:'map-container',ref,onMouseMove,onMouseUp:()=>{if(dragging){savePos(pos);}setDragging(null);},onMouseLeave:()=>setDragging(null)},
+    h('div',{style:{position:'absolute',top:10,right:10,zIndex:5,display:'flex',gap:6,alignItems:'center'}},
+      h('span',{style:{fontSize:11,color:'var(--text-muted)',background:'var(--surface-1)',border:'0.5px solid var(--border)',borderRadius:6,padding:'2px 8px',display:'flex',alignItems:'center',gap:4}},
+        h('i',{className:'ti ti-device-floppy',style:{fontSize:11}}),'Positions saved'
+      ),
+      h('button',{onClick:resetPos,style:{fontSize:11,color:'var(--text-muted)',background:'var(--surface-1)',border:'0.5px solid var(--border)',borderRadius:6,padding:'2px 8px',cursor:'pointer'}},'Reset')
+    ),
     h('svg',{className:'map-svg'},
       connections.map(conn=>{
         const f=pos[conn.from],t=pos[conn.to];
@@ -404,6 +443,38 @@ function WeekView({ideas}){
         h(StatusBadge,{status:idea.status})
       ))
     ))
+  );
+}
+
+function FocusView({ideas,onUpdate}){
+  const focusIdeas=ideas.filter(i=>i.starred&&i.status==='revisit');
+  const today=new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+  return h('div',{style:{width:'100%'}},
+    h('div',{style:{background:'var(--surface-2)',border:'0.5px solid var(--border)',borderRadius:12,padding:'1.25rem',marginBottom:'1rem'}},
+      h('div',{style:{display:'flex',alignItems:'center',gap:'.5rem',marginBottom:'1rem'}},
+        h('i',{className:'ti ti-focus-2',style:{fontSize:16,color:'var(--text-accent,#185fa5)'}}),
+        h('span',{style:{fontSize:16,fontWeight:500,color:'var(--text-primary)'}},"Today's focus"),
+        h('span',{style:{fontSize:12,color:'var(--text-muted)',marginLeft:'auto'}},today)
+      ),
+      focusIdeas.length===0
+        ?h('div',{style:{textAlign:'center',padding:'2rem',color:'var(--text-muted)',fontSize:13}},
+            h('i',{className:'ti ti-star',style:{fontSize:24,display:'block',marginBottom:'.5rem'}}),
+            'Star a Revisit Soon entry to see it here'
+          )
+        :focusIdeas.map(idea=>h('div',{key:idea.id,style:{display:'flex',alignItems:'flex-start',gap:'.75rem',padding:'.6rem 0',borderBottom:'0.5px solid var(--border)'}},
+            h('button',{
+              onClick:()=>onUpdate(idea.id,{focusDone:!idea.focusDone}),
+              style:{width:18,height:18,borderRadius:'50%',border:'1.5px solid var(--border-strong)',flexShrink:0,marginTop:2,cursor:'pointer',background:idea.focusDone?'#0f6e56':'transparent',display:'flex',alignItems:'center',justifyContent:'center',padding:0}
+            },idea.focusDone?h('i',{className:'ti ti-check',style:{fontSize:10,color:'#fff'}}):null),
+            h('div',null,
+              h('div',{style:{fontSize:14,color:'var(--text-primary)',textDecoration:idea.focusDone?'line-through':'none',opacity:idea.focusDone?0.6:1,lineHeight:1.4}},idea.text),
+              h('div',{style:{fontSize:11,color:'var(--text-muted)',marginTop:2}},
+                idea.category+(idea.dueDate?' · due '+fmtDue(idea.dueDate):'')
+              )
+            )
+          ))
+    ),
+    h('div',{style:{fontSize:12,color:'var(--text-muted)',padding:'0 .25rem'}},'Shows starred Revisit Soon entries. Check off to track progress — won\'t delete anything.')
   );
 }
 
@@ -480,7 +551,7 @@ function App(){
   const filtered=ideas.filter(i=>{
     const s=search.toLowerCase();
     const matchesSearch=!search||i.text.toLowerCase().includes(s)||i.category.toLowerCase().includes(s)||(i.status||'').toLowerCase().includes(s);
-    const matchesStatus=!statusFilter||i.status===statusFilter;
+    const matchesStatus=!statusFilter||(statusFilter==='starred'?i.starred:i.status===statusFilter);
     return matchesSearch&&matchesStatus;
   });
 
@@ -564,13 +635,18 @@ function App(){
   }
 
   // priority view — no category grouping needed in main view
-  const navItems=[{id:'capture',icon:'ti-bolt',l:'Capture'},{id:'map',icon:'ti-network',l:'Mind map'},{id:'week',icon:'ti-calendar-week',l:'Weekly digest'}];
+  const navItems=[{id:'capture',icon:'ti-bolt',l:'Capture'},{id:'focus',icon:'ti-focus-2',l:"Today's focus"},{id:'map',icon:'ti-network',l:'Mind map'},{id:'week',icon:'ti-calendar-week',l:'Weekly digest'}];
 
   return h('div',{id:'app'},
     h('div',{className:'sidebar'+(sidebarOpen?'':' collapsed')},
       h('button',{className:'sidebar-toggle',onClick:()=>setSidebarOpen(o=>!o)},sidebarOpen?'←':'→'),
       sidebarOpen&&h('div',{className:'sidebar-logo'},'Brain Dump',h('span',null,'personal thought space')),
       navItems.map(n=>h('div',{key:n.id,className:'nav-item'+(view===n.id?' active':''),onClick:()=>setView(n.id)},h('i',{className:'ti '+n.icon}),h('span',{className:'nav-label'},n.l))),
+      h('div',{className:'sidebar-section'},'Views'),
+      h('div',{className:'nav-item'+(statusFilter==='starred'?' active':''),onClick:()=>{setView('capture');setStatusFilter(f=>f==='starred'?'':'starred');}},
+        h('i',{className:'ti ti-star'}),h('span',{className:'nav-label'},'Starred'),
+        h('span',{className:'sidebar-cat-count',style:{marginLeft:'auto',fontSize:11,color:'var(--text-muted)'}},ideas.filter(i=>i.starred).length||'')
+      ),
       h('div',{className:'sidebar-section'},'Categories'),
       categories.map(cat=>h('div',{key:cat,className:'nav-item',style:{fontSize:12},onClick:()=>{setView('capture');setSearch(s=>s===cat?'':cat);}},
         h(CatDot,{cat}),h('span',{className:'nav-label'},cat),
@@ -593,8 +669,10 @@ function App(){
         h('div',{className:'search-wrap'},h('i',{className:'ti ti-search'}),h('input',{type:'text',placeholder:'Search ideas or status...',value:search,onChange:e=>setSearch(e.target.value)})),
         h('button',{className:'btn'+(statusFilter==='revisit'?' active':''),onClick:()=>setStatusFilter(f=>f==='revisit'?'':'revisit'),style:{fontSize:12}},'Revisit'),
         h('button',{className:'btn'+(statusFilter==='explore'?' active':''),onClick:()=>setStatusFilter(f=>f==='explore'?'':'explore'),style:{fontSize:12}},'Explore'),
+        h('button',{className:'btn'+(statusFilter==='archive'?' active':''),onClick:()=>setStatusFilter(f=>f==='archive'?'':'archive'),style:{fontSize:12}},'Archive'),
       ),
       h('div',{className:'content'},
+        view==='focus'&&h(FocusView,{ideas,onUpdate:updateIdea}),
         view==='map'&&h(MapView,{ideas:filtered,categories,connections}),
         view==='week'&&h('div',{style:{width:'100%'}},h(WeekView,{ideas})),
         view==='capture'&&h('div',{style:{width:'100%'},
@@ -630,10 +708,17 @@ function App(){
             aiMsg&&h('div',{className:'ai-status'},h('span',{className:'ai-dot'}),aiMsg)
           ),
           (()=>{
-            const revisit=filtered.filter(i=>i.status==='revisit');
-            const explore=filtered.filter(i=>i.status==='explore');
-            const unsorted=filtered.filter(i=>!i.status);
-            const archived=filtered.filter(i=>i.status==='archive');
+            const sortStarred=arr=>{
+              const withDue=arr.filter(i=>i.dueDate).sort((a,b)=>new Date(a.dueDate)-new Date(b.dueDate));
+              const noDue=arr.filter(i=>!i.dueDate);
+              const starred=withDue.filter(i=>i.starred);
+              const rest=withDue.filter(i=>!i.starred);
+              return [...starred,...rest,...noDue.filter(i=>i.starred),...noDue.filter(i=>!i.starred)];
+            };
+            const revisit=sortStarred(filtered.filter(i=>i.status==='revisit'));
+            const explore=sortStarred(filtered.filter(i=>i.status==='explore'));
+            const unsorted=sortStarred(filtered.filter(i=>!i.status));
+            const archived=sortStarred(filtered.filter(i=>i.status==='archive'));
             const sections=[
               {key:'revisit',label:'Revisit Soon',color:'#854f0b',bg:'#faeeda',ideas:revisit},
               {key:'explore',label:'Explore Later',color:'#0f6e56',bg:'#e1f5ee',ideas:explore},
