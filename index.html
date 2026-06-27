@@ -306,9 +306,16 @@ function IdeaCard({idea,allCategories,connections,onUpdate,onDelete,onConnect,dr
           })
         :h('div',{className:'idea-text',onDoubleClick:startEdit},idea.text),
       editing
-        ?h('div',{style:{display:'flex',gap:'.4rem',marginTop:'.3rem'}},
-            h('button',{className:'btn primary',style:{fontSize:12,padding:'2px 10px'},onClick:finishEdit},'Save'),
-            h('button',{className:'btn',style:{fontSize:12,padding:'2px 10px'},onClick:cancelEdit},'Cancel')
+        ?h('div',{style:{marginTop:'.3rem'}},
+            h('div',{style:{display:'flex',alignItems:'center',gap:'.4rem',marginBottom:'.3rem'}},
+              h('label',{style:{fontSize:11,color:'var(--text-muted)'}},h('i',{className:'ti ti-calendar-event',style:{fontSize:12,marginRight:3}}),'Due date'),
+              h('input',{type:'date',style:{border:'0.5px solid var(--border)',borderRadius:6,fontSize:12,padding:'2px 6px',background:'var(--surface-1)',color:'var(--text-primary)',outline:'none'},
+                value:idea.dueDate||'',onChange:e=>onUpdate({dueDate:e.target.value||null})})
+            ),
+            h('div',{style:{display:'flex',gap:'.4rem'}},
+              h('button',{className:'btn primary',style:{fontSize:12,padding:'2px 10px'},onClick:finishEdit},'Save'),
+              h('button',{className:'btn',style:{fontSize:12,padding:'2px 10px'},onClick:cancelEdit},'Cancel')
+            )
           )
         :h('div',{className:'idea-meta'},
             h('span',{className:'idea-time'},fmtTime(idea.created)),
@@ -348,14 +355,14 @@ function MapView({ideas,categories,connections}){
   const [pos,setPos]=useState(()=>{
     try{const saved=localStorage.getItem(MAP_POS_KEY);if(saved){const p=JSON.parse(saved);if(Object.keys(p).length>0)return p;}}catch(e){}
     const p={};
-    categories.forEach((cat,i)=>{p['CAT_'+cat]={x:40+((i%4)*230),y:40+Math.floor(i/4)*280};});
+    categories.forEach((cat,i)=>{p['CAT_'+cat]={x:20+((i%4)*240),y:40+Math.floor(i/4)*300};});
     ideas.forEach((idea)=>{
       const ci=categories.indexOf(idea.category);
-      const baseX=40+((ci%4)*230)+10;
-      const baseY=40+Math.floor(ci/4)*280+65;
+      const baseX=20+((ci%4)*240)+5;
+      const baseY=40+Math.floor(ci/4)*300+65;
       const same=ideas.filter(x=>x.category===idea.category);
       const off=same.indexOf(idea);
-      p[idea.id]={x:baseX+(off%2)*105,y:baseY+Math.floor(off/2)*80};
+      p[idea.id]={x:baseX+(off%2)*115,y:baseY+Math.floor(off/2)*90};
     });
     return p;
   });
@@ -377,14 +384,16 @@ function MapView({ideas,categories,connections}){
   function savePos(p){try{localStorage.setItem(MAP_POS_KEY,JSON.stringify(p));}catch(e){}}
   const catsWithIdeas=categories.filter(c=>ideas.some(i=>i.category===c));
   function resetPos(){try{localStorage.removeItem(MAP_POS_KEY);}catch(e){}window.location.reload();}
+  const mapW=Math.max(960,categories.length*240+100);
+  const mapH=Math.max(600,Math.ceil(categories.length/4)*300+100);
   return h('div',{className:'map-container',ref,onMouseMove,onMouseUp:()=>{if(dragging){savePos(pos);}setDragging(null);},onMouseLeave:()=>setDragging(null)},
-    h('div',{style:{position:'absolute',top:10,right:10,zIndex:5,display:'flex',gap:6,alignItems:'center'}},
-      h('span',{style:{fontSize:11,color:'var(--text-muted)',background:'var(--surface-1)',border:'0.5px solid var(--border)',borderRadius:6,padding:'2px 8px',display:'flex',alignItems:'center',gap:4}},
+    h('div',{style:{position:'sticky',top:10,right:10,zIndex:5,display:'flex',gap:6,alignItems:'center',justifyContent:'flex-end',pointerEvents:'none',padding:'0 10px'}},      h('span',{style:{pointerEvents:'all',fontSize:11,color:'var(--text-muted)',background:'var(--surface-1)',border:'0.5px solid var(--border)',borderRadius:6,padding:'2px 8px',display:'flex',alignItems:'center',gap:4}},
         h('i',{className:'ti ti-device-floppy',style:{fontSize:11}}),'Positions saved'
       ),
-      h('button',{onClick:resetPos,style:{fontSize:11,color:'var(--text-muted)',background:'var(--surface-1)',border:'0.5px solid var(--border)',borderRadius:6,padding:'2px 8px',cursor:'pointer'}},'Reset')
+      h('button',{onClick:resetPos,style:{pointerEvents:'all',fontSize:11,color:'var(--text-muted)',background:'var(--surface-1)',border:'0.5px solid var(--border)',borderRadius:6,padding:'2px 8px',cursor:'pointer'}},'Reset')
     ),
-    h('svg',{className:'map-svg'},
+    h('div',{style:{position:'relative',width:mapW,height:mapH,minWidth:'100%',minHeight:'100%'}},
+    h('svg',{style:{position:'absolute',top:0,left:0,width:mapW,height:mapH,pointerEvents:'none'}},
       connections.map(conn=>{
         const f=pos[conn.from],t=pos[conn.to];
         if(!f||!t)return null;
@@ -393,7 +402,7 @@ function MapView({ideas,categories,connections}){
       catsWithIdeas.map(cat=>ideas.filter(i=>i.category===cat).map(idea=>{
         const cn=pos['CAT_'+cat],ni=pos[idea.id];
         if(!cn||!ni)return null;
-        return h('line',{key:'l_'+idea.id,x1:cn.x+60,y1:cn.y+32,x2:ni.x+80,y2:ni.y,stroke:'rgba(128,128,128,.3)',strokeWidth:1});
+        return h('line',{key:'l_'+idea.id,x1:cn.x+55,y1:cn.y+30,x2:ni.x+75,y2:ni.y,stroke:CAT_COLORS[cat]||'rgba(128,128,128,.5)',strokeWidth:1.5,opacity:.5});
       }))
     ),
     catsWithIdeas.map(cat=>{
@@ -411,6 +420,7 @@ function MapView({ideas,categories,connections}){
         idea.status&&h('div',{style:{marginTop:3}},h(StatusBadge,{status:idea.status}))
       );
     })
+    )
   );
 }
 
