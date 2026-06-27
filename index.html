@@ -112,6 +112,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);
 @media(max-width:600px){.idea-controls{opacity:1}}
 .idea-mini-btn{width:22px;height:22px;border:none;background:transparent;cursor:pointer;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px}
 .idea-mini-btn:hover{background:var(--surface-0);color:var(--text-primary)}
+.idea-mini-select{height:22px;border:0.5px solid var(--border);border-radius:4px;background:var(--surface-0);color:var(--text-secondary);font-size:11px;padding:0 2px;cursor:pointer;max-width:80px}
+.idea-mini-select:hover{border-color:var(--border-strong);color:var(--text-primary)}
 .idea-edit-area{width:100%;border:none;border-bottom:1px solid var(--border-accent,#378add);background:transparent;font-size:14px;line-height:1.5;color:var(--text-primary);outline:none;font-family:inherit;resize:none;padding:0;margin-bottom:.25rem}
 .conn-pill{font-size:10px;color:var(--text-accent);background:var(--bg-accent);padding:1px 7px;border-radius:20px;cursor:pointer;border:none}
 
@@ -209,19 +211,14 @@ function StatusBadge({status}){
   return s?h('span',{className:'status-badge '+s.c},s.l):null;
 }
 
-function IdeaCard({idea,ideas,allCategories,connections,onUpdate,onDelete,onConnect,dragging,dragOver,onDragStart,onDragEnd,onDragOver,onDrop}){
+function IdeaCard({idea,allCategories,connections,onUpdate,onDelete,onConnect,dragging,dragOver,onDragStart,onDragEnd,onDragOver,onDrop}){
   const [showStatus,setShowStatus]=useState(false);
-  const [showMove,setShowMove]=useState(false);
   const [editing,setEditing]=useState(false);
   const [editVal,setEditVal]=useState('');
   const ref=useRef();
   const editRef=useRef();
-  const moveRef=useRef();
   useEffect(()=>{
-    function click(e){
-      if(ref.current&&!ref.current.contains(e.target))setShowStatus(false);
-      if(moveRef.current&&!moveRef.current.contains(e.target))setShowMove(false);
-    }
+    function click(e){if(ref.current&&!ref.current.contains(e.target))setShowStatus(false);}
     document.addEventListener('mousedown',click);
     return()=>document.removeEventListener('mousedown',click);
   },[]);
@@ -233,13 +230,10 @@ function IdeaCard({idea,ideas,allCategories,connections,onUpdate,onDelete,onConn
     }
   },[editing]);
   function startEdit(){setEditVal(idea.text);setEditing(true);}
-  function finishEdit(){
-    const v=editVal.trim();
-    if(v&&v!==idea.text)onUpdate({text:v});
-    setEditing(false);
-  }
+  function finishEdit(){const v=editVal.trim();if(v&&v!==idea.text)onUpdate({text:v});setEditing(false);}
   function cancelEdit(){setEditing(false);}
   const myConns=connections.filter(c=>c.from===idea.id||c.to===idea.id);
+  const cats=allCategories||[];
   return h('div',{
     className:'idea-card'+(dragging?' dragging':'')+(dragOver?' drag-over':''),
     draggable:!editing,
@@ -269,15 +263,12 @@ function IdeaCard({idea,ideas,allCategories,connections,onUpdate,onDelete,onConn
     ),
     h('div',{className:'idea-controls'},
       h('button',{className:'idea-mini-btn',title:'Edit',onClick:startEdit},h('i',{className:'ti ti-pencil'})),
-      h('div',{className:'idea-ctrl-wrap',ref:moveRef,style:{position:'relative'}},
-        h('button',{className:'idea-mini-btn',title:'Move to category',onClick:()=>setShowMove(s=>!s)},h('i',{className:'ti ti-folder'})),
-        showMove&&h('div',{className:'move-menu'},
-          ...[h('div',{key:'_lbl',style:{padding:'.25rem .75rem',fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'.06em'}},'Move to'),
-          ...(allCategories||[]).filter(c=>c!==idea.category).map(c=>h('div',{key:c,className:'move-opt',onClick:()=>{onUpdate({category:c});setShowMove(false);}},
-            h('span',{style:{width:7,height:7,borderRadius:'50%',background:CATEGORY_COLORS[c]||'#888',display:'inline-block',flexShrink:0}}),c
-          ))]
-        )
-      ),
+      h('select',{
+        className:'idea-mini-select',
+        value:idea.category,
+        onChange:e=>onUpdate({category:e.target.value}),
+        title:'Move to category'
+      },cats.map(c=>h('option',{key:c,value:c},c))),
       h('div',{className:'idea-ctrl-wrap',ref:ref},
         h('button',{className:'idea-mini-btn',title:'Set status',onClick:()=>setShowStatus(s=>!s)},h('i',{className:'ti ti-tag'})),
         showStatus&&h('div',{className:'status-menu'},
