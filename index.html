@@ -443,7 +443,7 @@ function MapView({ideas,categories,connections}){
   function resetPos(){try{localStorage.removeItem(MAP_POS_KEY);}catch(e){}window.location.reload();}
   const mapW=Math.max(960,categories.length*240+100);
   const mapH=Math.max(600,Math.ceil(categories.length/4)*300+100);
-  return h('div',{className:'map-container',ref,onMouseMove:moveDrag,onMouseUp:()=>endDrag(pos),onMouseLeave:()=>endDrag(pos),onTouchMove:moveDrag,onTouchEnd:()=>endDrag(pos),style:{touchAction:'none'}},
+  return h('div',{className:'map-container',ref,onMouseMove:moveDrag,onMouseUp:()=>endDrag(pos),onMouseLeave:()=>endDrag(pos),onTouchMove:e=>{if(dragging)moveDrag(e);},onTouchEnd:()=>endDrag(pos)},
     h('div',{style:{position:'sticky',top:10,right:10,zIndex:5,display:'flex',gap:6,alignItems:'center',justifyContent:'flex-end',pointerEvents:'none',padding:'0 10px'}},      h('span',{style:{pointerEvents:'all',fontSize:11,color:'var(--text-muted)',background:'var(--surface-1)',border:'0.5px solid var(--border)',borderRadius:6,padding:'2px 8px',display:'flex',alignItems:'center',gap:4}},
         h('i',{className:'ti ti-device-floppy',style:{fontSize:11}}),'Positions saved'
       ),
@@ -465,13 +465,13 @@ function MapView({ideas,categories,connections}){
     catsWithIdeas.map(cat=>{
       const n=pos['CAT_'+cat];if(!n)return null;
       const color=CAT_COLORS[cat]||'#888';
-      return h('div',{key:'cat_'+cat,className:'map-node cat-node',style:{left:n.x,top:n.y,borderLeft:`3px solid ${color}`},onMouseDown:e=>startDrag(e,'CAT_'+cat),onTouchStart:e=>startDrag(e,'CAT_'+cat)},
+      return h('div',{key:'cat_'+cat,className:'map-node cat-node',style:{left:n.x,top:n.y,borderLeft:`3px solid ${color}`,touchAction:'none'},onMouseDown:e=>startDrag(e,'CAT_'+cat),onTouchStart:e=>startDrag(e,'CAT_'+cat)},
         h('span',{style:{display:'flex',alignItems:'center',gap:6}},h('span',{style:{width:7,height:7,borderRadius:'50%',background:color,display:'inline-block'}}),cat)
       );
     }),
     ideas.map(idea=>{
       const n=pos[idea.id];if(!n)return null;
-      return h('div',{key:idea.id,className:'map-node'+(dragging===idea.id?' dragging':''),style:{left:n.x,top:n.y},onMouseDown:e=>startDrag(e,idea.id),onTouchStart:e=>startDrag(e,idea.id)},
+      return h('div',{key:idea.id,className:'map-node'+(dragging===idea.id?' dragging':''),style:{left:n.x,top:n.y,touchAction:'none'},onMouseDown:e=>startDrag(e,idea.id),onTouchStart:e=>startDrag(e,idea.id)},
         h('div',{className:'node-text'},idea.text.length>55?idea.text.slice(0,52)+'...':idea.text),
         idea.starred&&h('span',{style:{color:'#ba7517',fontSize:11}},' ★'),
         idea.status&&h('div',{style:{marginTop:3}},h(StatusBadge,{status:idea.status}))
