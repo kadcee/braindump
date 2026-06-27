@@ -392,7 +392,6 @@ function IdeaCard({idea,allCategories,connections,onUpdate,onDelete,onConnect,dr
 const MAP_POS_KEY='braindump_mappos';
 function MapView({ideas,categories,connections}){
   const [pos,setPos]=useState(()=>{
-    try{const saved=localStorage.getItem(MAP_POS_KEY);if(saved){const p=JSON.parse(saved);if(Object.keys(p).length>0)return p;}}catch(e){}
     const p={};
     categories.forEach((cat,i)=>{p['CAT_'+cat]={x:20+((i%4)*240),y:40+Math.floor(i/4)*300};});
     ideas.forEach((idea)=>{
@@ -403,6 +402,14 @@ function MapView({ideas,categories,connections}){
       const off=same.indexOf(idea);
       p[idea.id]={x:baseX+(off%2)*115,y:baseY+Math.floor(off/2)*90};
     });
+    try{
+      const saved=localStorage.getItem(MAP_POS_KEY);
+      if(saved){
+        const sp=JSON.parse(saved);
+        // merge: use saved positions where they exist, keep defaults for new items
+        Object.keys(sp).forEach(k=>{if(sp[k])p[k]=sp[k];});
+      }
+    }catch(e){}
     return p;
   });
   const [dragging,setDragging]=useState(null);
