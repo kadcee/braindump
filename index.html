@@ -147,6 +147,10 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);
 .empty-state{text-align:center;padding:3rem 1rem;color:var(--text-muted);font-size:14px;line-height:1.8}
 .empty-state i{font-size:32px;display:block;margin-bottom:.75rem}
 .export-msg{padding:.4rem 1rem;font-size:11px;color:var(--text-accent)}
+.drop-zone{border:1.5px dashed var(--border-strong);border-radius:12px;padding:1.25rem;text-align:center;font-size:13px;color:var(--text-muted);margin-bottom:1rem;transition:all .15s;cursor:pointer;background:var(--surface-2)}
+.drop-zone:hover,.drop-zone.drag-active{border-color:var(--border-accent);background:var(--bg-accent);color:var(--text-accent)}
+.drop-zone i{font-size:22px;display:block;margin-bottom:.4rem}
+.drop-zone span{font-size:11px;display:block;margin-top:.25rem;opacity:.7}
 
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:2px}
@@ -386,6 +390,31 @@ function App(){
   const [sidebarOpen,setSidebarOpen]=useState(true);
   const recogRef=useRef();
   const taRef=useRef();
+  const [dropActive,setDropActive]=useState(false);
+
+  function processImportFile(file){
+    if(!file||!file.name.endsWith('.json')){setExportMsg('Please drop a .json file.');setTimeout(()=>setExportMsg(''),3000);return;}
+    const reader=new FileReader();
+    reader.onload=evt=>{
+      try{
+        const parsed=JSON.parse(evt.target.result);
+        if(!parsed.ideas||!Array.isArray(parsed.ideas)){setExportMsg('Invalid file.');return;}
+        const mergedCats=[...new Set([...(parsed.categories||[]),...categories])];
+        const mergedIdeas=[...parsed.ideas,...ideas.filter(i=>!parsed.ideas.find(p=>p.id===i.id))];
+        const usedCats=new Set(mergedIdeas.map(i=>i.category));
+        const cleanCats=mergedCats.filter(c=>usedCats.has(c)||['Work','Personal','Ideas','Health','Learning','Goals','Finance','Misc'].includes(c));
+        const merged={
+          ideas:mergedIdeas,
+          categories:cleanCats,
+          connections:[...parsed.connections||[],...connections.filter(c=>!parsed.connections?.find(p=>p.id===c.id))]
+        };
+        upd(merged);
+        setExportMsg('Imported '+parsed.ideas.length+' ideas.');
+        setTimeout(()=>setExportMsg(''),4000);
+      }catch(err){setExportMsg('Could not read file.');}
+    };
+    reader.readAsText(file);
+  }
 
   const filtered=ideas.filter(i=>{
     if(!search)return true;
@@ -422,15 +451,24 @@ function App(){
 
   function startEditCat(cat){setEditCat(cat);setEditCatVal(cat);}
   function finishEditCat(){
-    if(!editCatVal.trim()||editCatVal===editCat){setEditCat(null);return;}
+    if(!editCatVal.trim()){
+      // delete the category if it has no ideas
+      if(!ideas.some(i=>i.category===editCat)){upd({categories:categories.filter(c=>c!==editCat)});}
+      setEditCat(null);return;
+    }
+    if(editCatVal===editCat){setEditCat(null);return;}
     upd({categories:categories.map(c=>c===editCat?editCatVal:c),ideas:ideas.map(i=>i.category===editCat?{...i,category:editCatVal}:i)});
     setEditCat(null);
   }
 
-  function addCategory(){
-    const name='New category '+(categories.length+1);
+  const [newCatModal,setNewCatModal]=useState(false);
+  const [newCatVal,setNewCatVal]=useState('');
+  function addCategory(){setNewCatVal('');setNewCatModal(true);}
+  function confirmAddCategory(){
+    const name=newCatVal.trim();
+    if(!name||categories.includes(name)){setNewCatModal(false);return;}
     upd({categories:[...categories,name]});
-    setTimeout(()=>startEditCat(name),50);
+    setNewCatModal(false);
   }
 
   function doMerge(into){
@@ -459,22 +497,7 @@ function App(){
   function importJSON(e){
     const file=e.target.files[0];
     if(!file)return;
-    const reader=new FileReader();
-    reader.onload=evt=>{
-      try{
-        const parsed=JSON.parse(evt.target.result);
-        if(!parsed.ideas||!Array.isArray(parsed.ideas)){setExportMsg('Invalid file.');return;}
-        const merged={
-          ideas:[...parsed.ideas,...ideas.filter(i=>!parsed.ideas.find(p=>p.id===i.id))],
-          categories:[...new Set([...(parsed.categories||[]),...categories])],
-          connections:[...parsed.connections||[],...connections.filter(c=>!parsed.connections?.find(p=>p.id===c.id))]
-        };
-        upd(merged);
-        setExportMsg('Imported '+parsed.ideas.length+' ideas.');
-        setTimeout(()=>setExportMsg(''),4000);
-      }catch(err){setExportMsg('Could not read file.');}
-    };
-    reader.readAsText(file);
+    processImportFile(file);
     e.target.value='';
   }
 
@@ -508,8 +531,25 @@ function App(){
       h('div',{className:'content'},
         view==='map'&&h(MapView,{ideas:filtered,categories,connections}),
         view==='week'&&h('div',{style:{width:'100%'}},h(WeekView,{ideas})),
-        view==='capture'&&h('div',{style:{width:'100%'}},
+        view==='capture'&&h('div',{style:{width:'100%'},
+          onDragOver:e=>{e.preventDefault();if(e.dataTransfer.types.includes('Files'))setDropActive(true);},
+          onDragLeave:e=>{if(!e.currentTarget.contains(e.relatedTarget))setDropActive(false);},
+          onDrop:e=>{
+            e.preventDefault();setDropActive(false);
+            const file=e.dataTransfer.files[0];
+            if(file)processImportFile(file);
+          }
+        },
           quick&&h('div',{className:'quick-banner'},h('i',{className:'ti ti-zap'}),'Quick capture · Enter to add'),
+          dropActive&&h('div',{className:'drop-zone drag-active'},
+            h('i',{className:'ti ti-file-import'}),
+            'Drop your braindump JSON here'
+          ),
+          !dropActive&&h('div',{className:'drop-zone',onClick:()=>document.getElementById('import-input').click()},
+            h('i',{className:'ti ti-brand-google-drive'}),
+            'Drop JSON from Google Drive here',
+            h('span',null,'or click to browse files')
+          ),
           h('div',{className:'capture-box'},
             h('div',{className:'capture-row'},
               h('textarea',{ref:taRef,className:'capture-textarea',placeholder:'Dump a thought...',value:text,onChange:e=>setText(e.target.value),
@@ -555,6 +595,18 @@ function App(){
           }),
           ideas.length===0&&h('div',{className:'empty-state'},h('i',{className:'ti ti-brain'}),'Type a thought above.','',h('br'),h('span',{style:{fontSize:12,opacity:.7}},'AI sorts it automatically.')),
           search&&filtered.length===0&&h('div',{className:'empty-state'},h('i',{className:'ti ti-search-off'}),'No ideas match "'+search+'"')
+        )
+      )
+    ),
+    newCatModal&&h('div',{className:'overlay',onClick:e=>{if(e.target.className==='overlay')setNewCatModal(false);}},
+      h('div',{className:'modal'},
+        h('h3',null,'New category'),
+        h('input',{type:'text',placeholder:'Category name...',value:newCatVal,autoFocus:true,
+          onChange:e=>setNewCatVal(e.target.value),
+          onKeyDown:e=>{if(e.key==='Enter')confirmAddCategory();if(e.key==='Escape')setNewCatModal(false);}}),
+        h('div',{className:'modal-actions'},
+          h('button',{className:'btn',onClick:()=>setNewCatModal(false)},'Cancel'),
+          h('button',{className:'btn primary',onClick:confirmAddCategory},'Add')
         )
       )
     ),
