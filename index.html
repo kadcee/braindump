@@ -108,6 +108,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);
 .star-btn{background:none;border:none;cursor:pointer;font-size:16px;color:var(--text-muted);padding:0;line-height:1;transition:color .15s;margin-top:1px}
 .star-btn:hover,.star-btn.on{color:#ba7517}
 .idea-controls{display:flex;gap:.2rem;opacity:0;align-items:center;transition:opacity .15s}
+.idea-card:hover .idea-controls{opacity:1}
+@media(max-width:600px){.idea-controls{opacity:1}}
 .idea-mini-btn{width:22px;height:22px;border:none;background:transparent;cursor:pointer;border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px}
 .idea-mini-btn:hover{background:var(--surface-0);color:var(--text-primary)}
 .idea-edit-area{width:100%;border:none;border-bottom:1px solid var(--border-accent,#378add);background:transparent;font-size:14px;line-height:1.5;color:var(--text-primary);outline:none;font-family:inherit;resize:none;padding:0;margin-bottom:.25rem}
@@ -549,12 +551,13 @@ function App(){
         view==='map'&&h(MapView,{ideas:filtered,categories,connections}),
         view==='week'&&h('div',{style:{width:'100%'}},h(WeekView,{ideas})),
         view==='capture'&&h('div',{style:{width:'100%'},
-          onDragOver:e=>{e.preventDefault();if(e.dataTransfer.types.includes('Files'))setDropActive(true);},
+          onDragOver:e=>{if(e.dataTransfer.types.includes('Files')){e.preventDefault();setDropActive(true);}},
           onDragLeave:e=>{if(!e.currentTarget.contains(e.relatedTarget))setDropActive(false);},
           onDrop:e=>{
-            e.preventDefault();setDropActive(false);
-            const file=e.dataTransfer.files[0];
-            if(file)processImportFile(file);
+            if(e.dataTransfer.files&&e.dataTransfer.files.length>0){
+              e.preventDefault();setDropActive(false);
+              processImportFile(e.dataTransfer.files[0]);
+            }
           }
         },
           quick&&h('div',{className:'quick-banner'},h('i',{className:'ti ti-zap'}),'Quick capture · Enter to add'),
@@ -584,7 +587,10 @@ function App(){
           categories.map(cat=>{
             const catIdeas=grouped[cat]||[];
             if(catIdeas.length===0&&search)return null;
-            return h('div',{key:cat,className:'category-section'},
+            return h('div',{key:cat,className:'category-section',
+              onDragOver:e=>e.preventDefault(),
+              onDrop:e=>{e.preventDefault();if(dragId)updateIdea(dragId,{category:cat});setDragId(null);setDragOverId(null);}
+            },
               h('div',{className:'cat-header'},
                 h(CatDot,{cat}),
                 editCat===cat
