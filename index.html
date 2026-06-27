@@ -54,6 +54,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);
 @media(max-width:600px){
   .content{padding:1rem}
   .due-input{display:none!important}
+  .idea-mini-select{display:none!important}
   .sidebar{width:44px!important;min-width:44px!important}
   .sidebar-logo{display:none}
   .sidebar-section{display:none}
@@ -177,6 +178,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--surface-0);
 .empty-state i{font-size:32px;display:block;margin-bottom:.75rem}
 .export-msg{padding:.4rem 1rem;font-size:11px;color:var(--text-accent)}
 .drop-zone{border:1.5px dashed var(--border-strong);border-radius:12px;padding:1.25rem;text-align:center;font-size:13px;color:var(--text-muted);margin-bottom:1rem;transition:all .15s;cursor:pointer;background:var(--surface-2)}
+@media(max-width:600px){.drop-zone{display:none}}
 .drop-zone:hover,.drop-zone.drag-active{border-color:var(--border-accent);background:var(--bg-accent);color:var(--text-accent)}
 .drop-zone i{font-size:22px;display:block;margin-bottom:.4rem}
 .drop-zone span{font-size:11px;display:block;margin-top:.25rem;opacity:.7}
@@ -255,7 +257,9 @@ function fmtDue(due){
   if(diff===1)return'Tomorrow';
   return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
 }
+const CAT_ICONS={'Work':'ti-briefcase','Personal':'ti-user','Ideas':'ti-bulb','Health':'ti-heart','Learning':'ti-book','Goals':'ti-target','Finance':'ti-coin','Misc':'ti-dots'};
 function CatDot({cat}){return h('span',{className:'cat-dot',style:{background:CAT_COLORS[cat]||'#888'}});}
+function CatIcon({cat}){return h('i',{className:'ti '+(CAT_ICONS[cat]||'ti-tag'),style:{fontSize:15,color:CAT_COLORS[cat]||'var(--text-muted)'}});}
 
 function StatusBadge({status}){
   const s=STATUS_OPTS.find(o=>o.v===status);
@@ -344,17 +348,14 @@ function MapView({ideas,categories,connections}){
   const [pos,setPos]=useState(()=>{
     try{const saved=localStorage.getItem(MAP_POS_KEY);if(saved){const p=JSON.parse(saved);if(Object.keys(p).length>0)return p;}}catch(e){}
     const p={};
-    const isMobile=window.innerWidth<600;
-    const cols=isMobile?1:4;
-    const colW=isMobile?Math.min(window.innerWidth-80,260):220;
-    categories.forEach((cat,i)=>{p['CAT_'+cat]={x:30+((i%cols)*colW),y:40+Math.floor(i/cols)*260};});
+    categories.forEach((cat,i)=>{p['CAT_'+cat]={x:40+((i%4)*230),y:40+Math.floor(i/4)*280};});
     ideas.forEach((idea)=>{
       const ci=categories.indexOf(idea.category);
-      const baseX=30+((ci%cols)*colW)+10;
-      const baseY=40+Math.floor(ci/cols)*260+60;
+      const baseX=40+((ci%4)*230)+10;
+      const baseY=40+Math.floor(ci/4)*280+65;
       const same=ideas.filter(x=>x.category===idea.category);
       const off=same.indexOf(idea);
-      p[idea.id]={x:baseX+(off%2)*(isMobile?colW-20:100),y:baseY+Math.floor(off/2)*70};
+      p[idea.id]={x:baseX+(off%2)*105,y:baseY+Math.floor(off/2)*80};
     });
     return p;
   });
@@ -387,12 +388,12 @@ function MapView({ideas,categories,connections}){
       connections.map(conn=>{
         const f=pos[conn.from],t=pos[conn.to];
         if(!f||!t)return null;
-        return h('line',{key:conn.id,x1:f.x+75,y1:f.y+18,x2:t.x+75,y2:t.y+18,stroke:'#378add',strokeWidth:1,strokeDasharray:'4,3',opacity:.6});
+        return h('line',{key:conn.id,x1:f.x+80,y1:f.y+25,x2:t.x+80,y2:t.y+25,stroke:'#378add',strokeWidth:1.5,strokeDasharray:'5,3',opacity:.7});
       }),
       catsWithIdeas.map(cat=>ideas.filter(i=>i.category===cat).map(idea=>{
         const cn=pos['CAT_'+cat],ni=pos[idea.id];
         if(!cn||!ni)return null;
-        return h('line',{key:'l_'+idea.id,x1:cn.x+55,y1:cn.y+16,x2:ni.x+55,y2:ni.y+16,stroke:'rgba(128,128,128,.3)',strokeWidth:1});
+        return h('line',{key:'l_'+idea.id,x1:cn.x+60,y1:cn.y+32,x2:ni.x+80,y2:ni.y,stroke:'rgba(128,128,128,.3)',strokeWidth:1});
       }))
     ),
     catsWithIdeas.map(cat=>{
@@ -669,7 +670,7 @@ function App(){
       ),
       h('div',{className:'sidebar-section'},'Categories'),
       categories.map(cat=>h('div',{key:cat,className:'nav-item',style:{fontSize:12},onClick:()=>{setView('capture');setSearch(s=>s===cat?'':cat);}},
-        h(CatDot,{cat}),h('span',{className:'nav-label'},cat),
+        h(CatIcon,{cat}),h('span',{className:'nav-label'},cat),
         h('span',{className:'sidebar-cat-count',style:{marginLeft:'auto',fontSize:11,color:'var(--text-muted)'}},ideas.filter(i=>i.category===cat).length||'')
       )),
       h('div',{className:'nav-item sidebar-add-cat',style:{opacity:.6,fontSize:12},onClick:addCategory},h('i',{className:'ti ti-plus'}),h('span',{className:'nav-label'},'Add category')),
